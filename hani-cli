@@ -71,6 +71,7 @@ search_anime () {
 			fi
 			page_counter=$(($page_counter+1))
 		else
+			results_2=$appendable_result
 			page_counter=0
 			[ ! -z "$results_2" -a "$results_2" != " " ] && results_2=$(echo "$results_2" | sed 's/^/JK /g')
 		fi

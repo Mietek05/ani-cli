@@ -2,7 +2,7 @@
 
 A forked cli to browse and watch anime en español.
 
-![screenshot](https://github.com/Mietek05/hani-cli/master/hani-cli.png?raw=true)
+![screenshot](hani-cli.png)
 
 This tool scrapes the sites [monoschinos](https://monoschinos2.com) and [jkanime](https://jkanime.net).
 I originally wanted to scrape [animeflv](https://www3.animeflv.com) but it requires a captcha for searching. If someone knows how to bypass it, I would be grateful.

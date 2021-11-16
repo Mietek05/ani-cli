@@ -17,7 +17,7 @@ git clone https://github.com/Mietek05/hani-cli
 
 ```bash
 cd hani-cli
-sudo make
+make
 ```
 
 ## Usage

@@ -1,11 +1,12 @@
 #!/bin/sh
 
-# I'm sorry in advance for my deficient sed skills ¯\_(ツ)_/¯
+# I'm sorry in advance for my deficient sed skills !!
 # dependencies: grep sed curl video_player
 # video_player ( needs to be able to play urls )
 player_fn="mpv"
 
-prog="hani-cli"
+# Dunno if the Ñ could cause any encoding problems ¯\_(ツ)_/¯
+prog="añi-cli"
 logfile="${XDG_CACHE_HOME:-$HOME/.cache}/ani-hsts"
 # Supported sites.
 monoschinos_url="https://monoschinos2.com"
@@ -59,7 +60,8 @@ search_anime () {
 		appendable_result=$(echo "$page" |
 		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e '/^<h5><a  href="https:/!d' |
 		sed -e "s|<h5><a  href=\"https://jkanime.net/||" -e 's|/.*$||')
-		if [ ! -z "$(echo $page | sed -n '/<a class="text nav-next"/p')" ]
+		is_next=$(echo $page | sed -n '/<a class="text nav-next"/p')
+		if [ ! -z "$is_next" -a "$is_next" != " "  ]
 		then
 			if [ -z "$results_2" ]
 			then
@@ -70,7 +72,7 @@ search_anime () {
 			page_counter=$(($page_counter+1))
 		else
 			page_counter=0
-			results_2=$(echo "$results_2" | sed 's/^/JK /g')
+			[ ! -z "$results_2" -a "$results_2" != " " ] && results_2=$(echo "$results_2" | sed 's/^/JK /g')
 		fi
 	done
 	echo "$results_1\n$results_2"

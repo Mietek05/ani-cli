@@ -8,8 +8,6 @@ player_fn="mpv"
 # Dunno if the Ñ could cause any encoding problems ¯\_(ツ)_/¯
 prog="añi-cli"
 logfile="${XDG_CACHE_HOME:-$HOME/.cache}/ani-hsts"
-# Default URL.
-base_url="https://monoschinos2.com"
 # Supported sites.
 monoschinos_url="https://monoschinos2.com"
 jkanime_url="https://jkanime.net"
@@ -32,9 +30,6 @@ help_text () {
 	 -d	 download episode
 	 -H	 continue where you left off
 	 -D	 delete history
-	 -q	 set video quality (best/worst/360/480/720/..)
-	 -j set scraping site to jkanime.net
-	 -m set scraping site to monoschinos2.com
 
 	EOF
 }
@@ -51,33 +46,52 @@ err () {
 
 search_anime () {
 	# get anime name along with its id
-	if [ $base_url = $monoschinos_url ]
-	then
-		search=$(printf '%s' "$1" | tr ' ' '+')
-		titlepattern='<a class="link-anime" href="https://monoschinos2.com/anime/'
-		curl -s "$base_url/search" -G -d "q=$search" |
-		sed '/^<a class="link-anime"/!d' | sed -e "s|${titlepattern}||" -e 's\">*$\\'
-	else
-		search=$(printf '%s' "$1" | tr ' ' '_')
-		titlepattern='<h5><a  href="https://jkanime.net/'
-		curl -s -L "$base_url/buscar/$search" |
+	search=$(printf '%s' "$1" | tr ' ' '+')
+	titlepattern_m='<a class="link-anime" href="https://monoschinos2.com/anime/'
+	results_1=$(curl -s "$monoschinos_url/search" -G -d "q=$search" |
+	sed '/^<a class="link-anime"/!d' | sed -e "s|${titlepattern_m}||" -e 's\">*$\\')
+	results_1=$(echo "$results_1" | sed 's/^/MC /g')
+	search=$(echo $search | sed 's/+/_/')
+	titlepattern_j='<h5><a  href="https://jkanime.net/'
+	page_counter=1
+	while [ "$page_counter" -gt 0 ]
+	do
+		page=$(curl -s -L "$jkanime_url/buscar/$search/$page_counter")
+		appendable_result=$(echo "$page" |
 		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e '/^<h5><a  href="https:/!d' |
-		sed -e "s|<h5><a  href=\"https://jkanime.net/||" -e 's|/.*$||'
-	fi
+		sed -e "s|<h5><a  href=\"https://jkanime.net/||" -e 's|/.*$||')
+		if [ ! -z "$(echo $page | sed -n '/<a class="text nav-next"/p')" ]
+		then
+			if [ -z "$results_2" ]
+			then
+				results_2="$appendable_result"
+			else
+				results_2="$results_2\n$appendable_result"
+			fi
+			page_counter=$(($page_counter+1))
+		else
+			page_counter=0
+			results_2=$(echo "$results_2" | sed 's/^/JK /g')
+		fi
+	done
+	echo "$results_1\n$results_2"
 }
 
 search_eps () {
 	# get available episodes for anime_id
 	anime_id=$1
-	if [ $base_url = $monoschinos_url ]
+	
+	if echo "$anime_id" | grep -q "MC "
 	then
+		anime_id=$(echo "$anime_id" | sed 's/MC //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
-		curl -s "$base_url/anime/$anime_id" |
+		curl -s "$monoschinos_url/anime/$anime_id" |
 		sed '/^<a class="item" href=/!d' |
 		sed -e '1!d' -e "
 		s|<a class=\"item\" href=\"https://monoschinos2.com/ver/${nodub_anime_id}-episodio-||" -e 's|"[><].*$||'
 	else
-		curl -s -L "$base_url/$anime_id" |
+		anime_id=$(echo "$anime_id" | sed 's/JK //g')
+		curl -s -L "$jkanime_url/$anime_id" |
 		sed -n '/<li><span>Episodios/p' |
 		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e 's|<li><span>Episodios:</span> ||' -e 's|</li>||'
 	fi
@@ -87,20 +101,21 @@ get_embedded_video_link() {
 	# get the download page url
 	anime_id=$1	
 	ep_no=$2
-	if [ $base_url = $monoschinos_url ]
+	if echo "$anime_id" | grep -q "MC "
 	then
+		anime_id=$(echo "$anime_id" | sed 's/MC //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
-		echo "$base_url/ver/$nodub_anime_id-episodio-$ep_no" >2&
 		# credits to fork: https://github.com/Dink4n/ani-cli for the fix
-		curl -s "$base_url/ver/$nodub_anime_id-episodio-$ep_no" |
+		curl -s "$monoschinos_url/ver/$nodub_anime_id-episodio-$ep_no" |
 		sed -n '/uqload.com/p' |
 		sed -e 's|&lt;iframe class=&quot;embed-responsive-item&quot; scrolling=&quot;no&quot; width=&quot;560&quot; height=&quot;315&quot; src=&quot;||' -e '
 		s|&.*$||'
 	else
+		anime_id=$(echo "$anime_id" | sed 's/JK //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
 		# credits to fork: https://github.com/Dink4n/ani-cli for the fix
 		# dub prefix takes the value "-dub" when dub is needed else is empty
-		curl -s -L "$base_url/$anime_id/$ep_no" |
+		curl -s -L "$jkanime_url/$anime_id/$ep_no" |
 		sed -n '/video\[2\] =/p' |
 		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e 's/^[^h]*//g' -e 's|-.*$||' -e 's|".*$||'
 	fi
@@ -138,7 +153,7 @@ get_video_quality() {
 
 get_links () {
 	embedded_video_url=$1
-	if [ $base_url = $monoschinos_url ]
+	if echo "$anime_id" | grep -q "MC "
 	then
 		true_embedded_ending=$(echo $embedded_video_url | sed 's/.*F//')
 		true_embedded_url=https://uqload.com/$true_embedded_ending
@@ -183,9 +198,9 @@ get_search_query () {
 
 anime_selection () {
 	search_results=$*
-	menu_format_string='[%d] %s\n'
-	menu_format_string_c1="$c_blue[$c_cyan%d$c_blue] $c_reset%s\n"
-	menu_format_string_c2="$c_blue[$c_cyan%d$c_blue] $c_yellow%s$c_reset\n"
+	menu_format_string='[%d](%s) %s\n'
+	menu_format_string_c1="$c_blue[$c_cyan%d$c_blue]$c_magenta(%s) $c_reset%s\n"
+	menu_format_string_c2="$c_blue[$c_cyan%d$c_blue]$c_magenta(%s) $c_yellow%s$c_reset\n"
 
 	count=1
 	while read anime_id; do
@@ -193,8 +208,14 @@ anime_selection () {
 		[ $((count % 2)) -eq 0 ] &&
 			menu_format_string=$menu_format_string_c1 ||
 			menu_format_string=$menu_format_string_c2
-
-		printf "$menu_format_string" "$count" "$anime_id"
+		nosub_anime_id=$(echo "$anime_id" | sed -e 's/-sub-espanol//g' -e 's/MC //g' -e 's/JK //g')
+		if echo "$anime_id" | grep -q "MC "
+		then
+			site="MC"
+		else
+			site="JK"
+		fi
+		printf "$menu_format_string" "$count" "$site" "$nosub_anime_id"
 		count=$((count+1))
 	done <<-EOF
 	$search_results
@@ -335,7 +356,7 @@ dep_ch "$player_fn" "curl" "sed" "grep"
 is_download=0
 quality=best
 scrape=query
-while getopts 'hdHDqjmk:-:' OPT; do
+while getopts 'hdHDq:-:' OPT; do
 	case $OPT in
 		h)
 			help_text
@@ -354,12 +375,6 @@ while getopts 'hdHDqjmk:-:' OPT; do
 			;;
 		q)
 			quality=$OPTARG
-			;;
-		j)
-			base_url=$jkanime_url
-			;;
-		m)
-			base_url=$monoschinos_url
 			;;
 		-)
 			case $OPTARG in
@@ -434,32 +449,6 @@ while :; do
 			;;
 		a)
 			tput reset
-			get_search_query ""
-			search_results=$(search_anime "$query")
-			[ -z "$search_results" ] && die "No search results found"
-			anime_selection "$search_results"
-			episode_selection
-			check_input
-			append_history
-			open_selection
-			continue
-			;;
-		j)
-			tput reset
-			base_url=jkanime_url
-			get_search_query ""
-			search_results=$(search_anime "$query")
-			[ -z "$search_results" ] && die "No search results found"
-			anime_selection "$search_results"
-			episode_selection
-			check_input
-			append_history
-			open_selection
-			continue
-			;;
-		m)
-			tput reset
-			base_url=monoschinos_url
 			get_search_query ""
 			search_results=$(search_anime "$query")
 			[ -z "$search_results" ] && die "No search results found"

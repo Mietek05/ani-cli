@@ -3,10 +3,13 @@ PREFIX := /usr/local
 all: install
 
 install:
-	cp hani-cli $${HOME}/.local/bin/hani-cli
+	ls -sr hani-cli $${HOME}/.local/bin/hani-cli
 	chmod 0755 $${HOME}/.local/bin/hani-cli
+
+update:
+	git pull --quiet
 
 uninstall:
 	$(RM) $${HOME}/.local/bin/hani-cli
 
-.PHONY: all install uninstall
+.PHONY: all install update uninstall

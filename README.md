@@ -33,6 +33,12 @@ make
 
   ### delete anime from history
   ``hani-cli -D``.
+  
+  ### try scraping from another server
+  ``hani-cli -t``.
+  
+  ### update
+  ``hani-cli -u``.
 
 Multiple episodes can be viewed/downloaded by giving the episode range like so
 

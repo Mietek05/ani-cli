@@ -228,7 +228,7 @@ check_for_update () {
 	REMOTE=$(git -C $DIRECTORY rev-parse "$UPSTREAM")
 
 	if [ $LOCAL != $REMOTE ]; then
-    	printf "${c_green}UPDATE AVAILABLE!\n${c_cyan}Please run the following command in your hani-cli directory to update\n${c_blue}----------\n${c_reset}make update\n${c_blue}----------\n"
+    	printf "${c_green}UPDATE AVAILABLE!\n${c_cyan}Please run the following command to update\n${c_blue}----------\n${c_reset}hani-cli -u\n${c_blue}----------\n"
 	fi
 }
 
@@ -450,7 +450,7 @@ check_for_update
 is_download=0
 quality=best
 scrape=query
-while getopts 'hdHDq:-:' OPT; do
+while getopts 'hdHDqu:-:' OPT; do
 	case $OPT in
 		h)
 			help_text
@@ -469,6 +469,9 @@ while getopts 'hdHDq:-:' OPT; do
 			;;
 		q)
 			quality=$OPTARG
+			;;
+		u)
+			git -C "$(dirname "$(readlink -f "$0")")" pull
 			;;
 		-)
 			case $OPTARG in

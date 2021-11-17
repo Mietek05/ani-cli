@@ -203,10 +203,11 @@ get_links () {
 }
 
 check_for_update () {
-	git fetch --quiet
+	DIRECTORY="$(dirname "$(readlink -f "$0")")"
+	git -C "$DIRECTORY" fetch --quiet
 	UPSTREAM=${1:-'@{u}'}
-	LOCAL=$(git rev-parse @)
-	REMOTE=$(git rev-parse "$UPSTREAM")
+	LOCAL=$(git -C $DIRECTORY rev-parse @)
+	REMOTE=$(git -C $DIRECTORY rev-parse "$UPSTREAM")
 
 	UPDATE_MESSAGE="UPDATE AVAILABLE!\nPlease run the following command in your hani-cli directory to update\n----------\nmake update\n----------\n"
 

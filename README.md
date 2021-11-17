@@ -32,7 +32,7 @@ make
   ``hani-cli -H``
 
   ### delete anime from history
-  ``hani-cli -D``.`
+  ``hani-cli -D``.
 
 Multiple episodes can be viewed/downloaded by giving the episode range like so
 

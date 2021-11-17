@@ -544,8 +544,8 @@ while :; do
 			;;
 		t)
 			episode=$((episode))
-			[!$mp4upload] && mp4upload=true
 			[$mp4upload] && okru=true
+			[!$mp4upload] && mp4upload=true
 			;;
 		a)
 			tput reset

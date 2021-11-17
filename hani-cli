@@ -450,7 +450,7 @@ check_for_update
 is_download=0
 quality=best
 scrape=query
-while getopts 'hdHDqu:-:' OPT; do
+while getopts 'hdHDquU:-:' OPT; do
 	case $OPT in
 		h)
 			help_text

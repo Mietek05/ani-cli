@@ -6,10 +6,18 @@
 player_fn="mpv"
 
 prog="hani-cli"
-logfile="${XDG_CACHE_HOME:-$HOME/.cache}/ani-hsts"
+logfile="${XDG_CACHE_HOME:-$HOME/.cache}/hani-hsts"
+
 # Supported sites.
 monoschinos_url="https://monoschinos2.com"
 jkanime_url="https://jkanime.net"
+
+# Servers
+okru_url="https://ok.ru/"
+
+# UQload is the default server for monoschinos.
+mp4upload=false
+okru=false
 
 c_red="\033[1;31m"
 c_green="\033[1;32m"
@@ -49,7 +57,7 @@ search_anime () {
 	titlepattern_m='<a class="link-anime" href="https://monoschinos2.com/anime/'
 	results_1=$(curl -s "$monoschinos_url/search" -G -d "q=$search" |
 	sed '/^<a class="link-anime"/!d' | sed -e "s|${titlepattern_m}||" -e 's\">*$\\')
-	results_1=$(echo "$results_1" | sed 's/^/MC /g')
+	[ ! -z "$results_1" -a "$results_1" != " " ] && results_1=$(echo "$results_1" | sed 's/^/MC /g')
 	search=$(echo $search | sed 's/+/_/')
 	titlepattern_j='<h5><a  href="https://jkanime.net/'
 	page_counter=1
@@ -75,16 +83,17 @@ search_anime () {
 			[ ! -z "$results_2" -a "$results_2" != " " ] && results_2=$(echo "$results_2" | sed 's/^/JK /g')
 		fi
 	done
-	echo "$results_1\n$results_2"
+	[ ! -z "$results_1" -a ! -z "$results_2"  ] && echo "$results_1\n$results_2"
+	[ -z "$results_1" -a ! -z "$results_2"  ] && echo "$results_2"
+	[ ! -z "$results_1" -a -z "$results_2"  ] && echo "$results_1"
 }
 
 search_eps () {
 	# get available episodes for anime_id
 	anime_id=$1
-	
 	if echo "$anime_id" | grep -q "MC "
 	then
-		anime_id=$(echo "$anime_id" | sed 's/MC //g')
+		anime_id=$(echo "$anime_id" | sed -e 's/MC //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
 		curl -s "$monoschinos_url/anime/$anime_id" |
 		sed '/^<a class="item" href=/!d' |
@@ -102,6 +111,7 @@ get_embedded_video_link() {
 	# get the download page url
 	anime_id=$1	
 	ep_no=$2
+	echo $anime_id >> debug
 	if echo "$anime_id" | grep -q "JK "
 	then
 		anime_id=$(echo "$anime_id" | sed 's/JK //g')
@@ -111,6 +121,14 @@ get_embedded_video_link() {
 		curl -s -L "$jkanime_url/$anime_id/$ep_no" |
 		sed -n '/video\[2\] =/p' |
 		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e 's/^[^h]*//g' -e 's|-.*$||' -e 's|".*$||'
+	elif echo "$anime_id" | grep -q "UQLOAD_MC "
+	then
+		anime_id=$(echo "$anime_id" | sed 's/UQLOAD_MC //g')
+		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
+		# credits to fork: https://github.com/Dink4n/ani-cli for the fix
+		curl -s "$monoschinos_url/ver/$nodub_anime_id-episodio-$ep_no" |
+		sed -n '/uqload.com/p' |
+		sed -e 's|&lt;iframe class=&quot;embed-responsive-item&quot; scrolling=&quot;no&quot; width=&quot;560&quot; height=&quot;315&quot; src=&quot;||' -e 's|&.*$||'
 	elif echo "$anime_id" | grep -q "MP4UPLOAD_MC "
 	then
 		anime_id=$(echo "$anime_id" | sed 's/MP4UPLOAD_MC //g')
@@ -120,12 +138,12 @@ get_embedded_video_link() {
 		curl -s "$redir_url" | sed -n '/var redir/p' |
 		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e 's/var redir = "//' -e 's|".*$||'
 	else
-		anime_id=$(echo "$anime_id" | sed 's/MC //g')
+		anime_id=$(echo "$anime_id" | sed 's/OKRU_MC //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
-		# credits to fork: https://github.com/Dink4n/ani-cli for the fix
-		curl -s "$monoschinos_url/ver/$nodub_anime_id-episodio-$ep_no" |
-		sed -n '/uqload.com/p' |
-		sed -e 's|&lt;iframe class=&quot;embed-responsive-item&quot; scrolling=&quot;no&quot; width=&quot;560&quot; height=&quot;315&quot; src=&quot;||' -e 's|&.*$||'
+		redir_url=$(curl -s "$monoschinos_url/ver/$nodub_anime_id-episodio-$ep_no" | sed -n '/ok.ru/p' |
+			sed -e 's|&lt;iframe class=&quot;embed-responsive-item&quot; scrolling=&quot;no&quot; width=&quot;560&quot; height=&quot;315&quot; src=&quot;||' -e 's|&.*$||')
+		curl -s "$redir_url" | sed -n '/var redir/p' |
+		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e 's/var redir = "//' -e 's|".*$||'
 	fi
 }
 
@@ -165,7 +183,7 @@ get_links () {
 	then
 		video_url=$(curl -s -L "$embedded_video_url" |
 		sed -n "/url: '/p" | sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e '2d' -e "s/url: '//" -e "s|'.*$||")
-	elif echo "$anime_id" | grep -q "MP4UPLOAD_MC "
+	elif echo "$anime_id" | grep -q "MP4UPLOAD"
 	then
 		html_page=$(curl -s "$embedded_video_url" | sed -n '/||player/p' | sed 's/^[^|]*|//')
 		parameters=$(echo $html_page | sed 's/|/\n/g')
@@ -209,10 +227,8 @@ check_for_update () {
 	LOCAL=$(git -C $DIRECTORY rev-parse @)
 	REMOTE=$(git -C $DIRECTORY rev-parse "$UPSTREAM")
 
-	UPDATE_MESSAGE="UPDATE AVAILABLE!\nPlease run the following command in your hani-cli directory to update\n----------\nmake update\n----------\n"
-
 	if [ $LOCAL != $REMOTE ]; then
-    echo $UPDATE_MESSAGE
+    	printf "${c_green}UPDATE AVAILABLE!\n${c_cyan}Please run the following command in your hani-cli directory to update\n${c_blue}----------\n${c_reset}make update\n${c_blue}----------\n"
 	fi
 }
 
@@ -335,7 +351,6 @@ open_selection() {
 open_episode () {
 	anime_id=$1
 	episode=$2
-
 	# Cool way of clearing screen
 	tput reset
 	while [ "$episode" -lt 1 ] || [ "$episode" -gt "$last_ep_number" ]
@@ -349,24 +364,42 @@ open_episode () {
 	printf "Getting data for episode %d.\n" $episode
 	embedded_video_url=""
 	video_url=""
-	mp4upload=false
+	echo "$anime_id" | grep -q "MC " && anime_id="UQLOAD_$anime_id"
 	while [ -z $embedded_video_url ] || [ -z $video_url ]
 	do
-		if [ "$mp4upload" = false ]
+		if echo "$anime_id" | grep -q "JK "
 		then
-			printf "Scraping Uqload...\n"
-			embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
-			[ -z "$embedded_video_url" ] && die "Server not available."
-			video_url=$(get_links "$embedded_video_url")
-		else
-			printf "Scraping Mp4Upload...\n"
-			anime_id="MP4UPLOAD_$anime_id"
+			printf "Scraping Desu...\n"
 			embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
 			[ -z "$embedded_video_url" ] && die "Server not available."
 			video_url=$(get_links "$embedded_video_url")
 			[ -z "$video_url" ] && die "Problem retreiving video from server."
+		else
+			if [ "$mp4upload" = false ]
+			then
+				printf "Scraping Uqload...\n"
+				embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
+				video_url=$(get_links "$embedded_video_url")
+				#https://m20.uqload.org/3rfkja7hbrw2q4drdiipdn5vanfoiixp3o2tvrw34pppm2rvwaezdfexuvza/v.mp4
+			else
+				if [ "$okru" = false ]
+				then
+					printf "Scraping Mp4Upload...\n"
+					anime_id=$(echo "$anime_id" | sed "s/UQLOAD/MP4UPLOAD/")
+					embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
+					video_url=$(get_links "$embedded_video_url")
+				else
+					printf "Scraping Ok...\n"
+					anime_id=$(echo "$anime_id" | sed -e "s/MP4UPLOAD/OKRU/" -e "s/UQLOAD/OKRU/")
+					embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
+					[ -z "$embedded_video_url" ] && die "Servers not available."
+					video_url=$embedded_video_url
+					embedded_video_url=$okru_url
+				fi
+				okru=true
+			fi
+			mp4upload=true
 		fi
-		mp4upload=true
 	done
 	case $video_url in
 		*streamtape*)
@@ -388,7 +421,7 @@ open_episode () {
 		" "$logfile" > "${logfile}.new" && mv "${logfile}.new" "$logfile"
 		setsid -f $player_fn --http-header-fields="Referer: $embedded_video_url" "$video_url" >/dev/null 2>&1
 	else
-		anime_name=$(echo anime_id | sed -e 's/MC //g' -e 's/JK //g' -e 's/MP4UPLOAD_//g')
+		anime_name=$(echo anime_id | sed 's/^[^ ]* //g')
 		printf "Downloading episode $episode ...\n"
 		printf "%s\n" "$video_url"
 		# add 0 padding to the episode name
@@ -473,7 +506,8 @@ append_history
 open_selection
 
 while :; do
-	printf "${c_magenta}If the episode doesn't start after some seconds, try replaying it!\nIf it still doesn't play, the file was probably removed from the server..."
+	printf "${c_green}IF THE EPISODE DOESN'T START PLAYING AFTER 15 SECONDS:\n"
+	printf "${c_magenta}1. Enter [r] to try replaying it!\n${c_blue}2. Enter [t] to try scraping from another server."
 	printf "\n${c_green}Currently playing %s episode ${c_cyan}%d/%d\n" "$selection_id" $episode $last_ep_number
 	if [ "$episode" -ne "$last_ep_number" ]; then
 		printf "$c_blue[${c_cyan}%s$c_blue] $c_yellow%s$c_reset\n" "n" "next episode"
@@ -485,6 +519,7 @@ while :; do
 		printf "$c_blue[${c_cyan}%s$c_blue] $c_yellow%s$c_reset\n" "s" "select episode"
 	fi
 	printf "$c_blue[${c_cyan}%s$c_blue] $c_magenta%s$c_reset\n" "r" "replay current episode"
+	printf "$c_blue[${c_cyan}%s$c_blue] $c_blue%s$c_reset\n" "t" "try another server."
 	printf "$c_blue[${c_cyan}%s$c_blue] $c_cyan%s$c_reset\n" "a" "search for another anime"
 	printf "$c_blue[${c_cyan}%s$c_blue] $c_red%s$c_reset\n" "q" "exit"
 	printf "${c_blue}Enter choice:${c_green} "
@@ -507,6 +542,11 @@ while :; do
 		r)
 			episode=$((episode))
 			;;
+		t)
+			episode=$((episode))
+			[!$mp4upload] && mp4upload=true
+			[$mp4upload] && okru=true
+			;;
 		a)
 			tput reset
 			get_search_query ""
@@ -523,7 +563,7 @@ while :; do
 			break;;
 
 		*)
-			die "invalid choice"
+			die "invalid choice."
 			;;
 	esac
 

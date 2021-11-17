@@ -340,12 +340,12 @@ open_episode () {
 	do
 		if [ "$mp4upload" = false ]
 		then
-			printf "Scraping Uqload..."
+			printf "Scraping Uqload...\n"
 			embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
 			[ -z "$embedded_video_url" ] && die "Server not available."
 			video_url=$(get_links "$embedded_video_url")
 		else
-			printf "\nScraping Mp4Upload..."
+			printf "Scraping Mp4Upload...\n"
 			anime_id="MP4UPLOAD_$anime_id"
 			embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
 			[ -z "$embedded_video_url" ] && die "Server not available."
@@ -457,7 +457,7 @@ append_history
 open_selection
 
 while :; do
-	printf "\n${c_magenta}If the episode doesn't start after some seconds, try replaying it!\nIf it still doesn't play, the file was probably removed from the server..."
+	printf "${c_magenta}If the episode doesn't start after some seconds, try replaying it!\nIf it still doesn't play, the file was probably removed from the server..."
 	printf "\n${c_green}Currently playing %s episode ${c_cyan}%d/%d\n" "$selection_id" $episode $last_ep_number
 	if [ "$episode" -ne "$last_ep_number" ]; then
 		printf "$c_blue[${c_cyan}%s$c_blue] $c_yellow%s$c_reset\n" "n" "next episode"

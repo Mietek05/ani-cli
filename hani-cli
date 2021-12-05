@@ -249,7 +249,7 @@ dep_ch () {
 # get query
 get_search_query () {
 	if [ -z "$*" ]; then
-		printf "Search Anime: "
+		printf "${c_blue}Search Anime: "
 		read -r query
 	else
 		query=$*

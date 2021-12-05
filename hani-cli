@@ -54,9 +54,14 @@ err () {
 search_anime () {
 	# get anime name along with its id
 	search=$(printf '%s' "$1" | tr ' ' '+')
-	titlepattern_m='<a class="link-anime" href="https://monoschinos2.com/anime/'
-	results_1=$(curl -s "$monoschinos_url/search" -G -d "q=$search" |
-	sed '/^<a class="link-anime"/!d' | sed -e "s|${titlepattern_m}||" -e 's\">*$\\')
+	# Old titlepattern
+	#titlepattern_m='<a class="link-anime" href="https://monoschinos2.com/anime/'
+	titlepattern_m='<a href="https://monoschinos2.com/anime/'
+	# Old Monoschinos pattern
+	#results_1=$(curl -s "$monoschinos_url/search" -G -d "q=$search" |
+	#sed '/^<a class="link-anime"/!d' | sed -e "s|${titlepattern_m}||" -e 's\">*$\\')
+	results_1=$(curl -s "$monoschinos_url/buscar" -G -d "q=$search" |
+	sed -n '/^<div class="series">/{g;1!p;};h' | sed -e "s|${titlepattern_m}||" -e 's\">*$\\')
 	[ ! -z "$results_1" -a "$results_1" != " " ] && results_1=$(echo "$results_1" | sed 's/^/MC /g')
 	search=$(echo $search | sed 's/+/_/')
 	titlepattern_j='<h5><a  href="https://jkanime.net/'
@@ -68,17 +73,16 @@ search_anime () {
 		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e '/^<h5><a  href="https:/!d' |
 		sed -e "s|<h5><a  href=\"https://jkanime.net/||" -e 's|/.*$||')
 		is_next=$(echo $page | sed -n '/<a class="text nav-next"/p')
+		if [ -z "$results_2" ]
+		then
+			results_2="$appendable_result"
+		else
+			results_2="$results_2\n$appendable_result"
+		fi
 		if [ ! -z "$is_next" -a "$is_next" != " "  ]
 		then
-			if [ -z "$results_2" ]
-			then
-				results_2="$appendable_result"
-			else
-				results_2="$results_2\n$appendable_result"
-			fi
 			page_counter=$(($page_counter+1))
 		else
-			results_2=$appendable_result
 			page_counter=0
 			[ ! -z "$results_2" -a "$results_2" != " " ] && results_2=$(echo "$results_2" | sed 's/^/JK /g')
 		fi
@@ -95,10 +99,13 @@ search_eps () {
 	then
 		anime_id=$(echo "$anime_id" | sed -e 's/MC //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
-		curl -s "$monoschinos_url/anime/$anime_id" |
-		sed '/^<a class="item" href=/!d' |
-		sed -e '1!d' -e "
-		s|<a class=\"item\" href=\"https://monoschinos2.com/ver/${nodub_anime_id}-episodio-||" -e 's|"[><].*$||'
+		# Outdated
+		#curl -s "$monoschinos_url/anime/$anime_id" |
+		#sed '/^<a class="item" href=/!d' |
+		#sed -e '1!d' -e "
+		#s|<a class=\"item\" href=\"https://monoschinos2.com/ver/${nodub_anime_id}-episodio-||" -e 's|"[><].*$||'
+		curl -s "$monoschinos_url/anime/$anime_id" | 
+		sed -n '/^<p class="animetitles"/p' | sed -e '$!d' -e 's|<p class="animetitles">Capitulo||' | sed 's/<.*$//'
 	else
 		anime_id=$(echo "$anime_id" | sed 's/JK //g')
 		curl -s -L "$jkanime_url/$anime_id" |
@@ -125,7 +132,6 @@ get_embedded_video_link() {
 	then
 		anime_id=$(echo "$anime_id" | sed 's/UQLOAD_MC //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
-		# credits to fork: https://github.com/Dink4n/ani-cli for the fix
 		curl -s "$monoschinos_url/ver/$nodub_anime_id-episodio-$ep_no" |
 		sed -n '/uqload.com/p' |
 		sed -e 's|&lt;iframe class=&quot;embed-responsive-item&quot; scrolling=&quot;no&quot; width=&quot;560&quot; height=&quot;315&quot; src=&quot;||' -e 's|&.*$||'

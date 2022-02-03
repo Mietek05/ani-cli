@@ -3,7 +3,7 @@ PREFIX := /usr/local
 all: install
 
 install:
-	ls -sr hani-cli $${HOME}/.local/bin/hani-cli
+	ln -sr hani-cli $${HOME}/.local/bin/hani-cli
 	chmod 0755 $${HOME}/.local/bin/hani-cli
 
 uninstall:

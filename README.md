@@ -51,3 +51,4 @@ This would open/download episodes 1 2 3 4 5 6
 * mpv
 * ffmpeg
 * git
+* base64 [not sure if this is outside POSIX]

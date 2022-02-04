@@ -36,12 +36,6 @@ make
   ### update
   ``hani-cli -u``.
 
-Multiple episodes can be viewed/downloaded by giving the episode range like so
-
-  Choose episode [1-13]: 1 6
-
-This would open/download episodes 1 2 3 4 5 6
-
 ## Dependencies
 
 * grep

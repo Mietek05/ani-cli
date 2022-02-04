@@ -16,6 +16,7 @@ jkanime_url="https://jkanime.net"
 okru_url="https://ok.ru/"
 
 # UQload is the default server for monoschinos.
+uqload=false
 mp4upload=false
 okru=false
 
@@ -95,9 +96,8 @@ search_anime () {
 search_eps () {
 	# get available episodes for anime_id
 	anime_id=$1
-	if echo "$anime_id" | grep -q "MC "
+	if [ "$uqload" = true ]
 	then
-		anime_id=$(echo "$anime_id" | sed -e 's/MC //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
 		# Outdated
 		#curl -s "$monoschinos_url/anime/$anime_id" |
@@ -118,112 +118,74 @@ get_embedded_video_link() {
 	# get the download page url
 	anime_id=$1	
 	ep_no=$2
-	echo $anime_id >> debug
-	if echo "$anime_id" | grep -q "JK "
+	if [ "$uqload" = false ]
 	then
 		anime_id=$(echo "$anime_id" | sed 's/JK //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
-		# credits to fork: https://github.com/Dink4n/ani-cli for the fix
-		# dub prefix takes the value "-dub" when dub is needed else is empty
 		curl -s -L "$jkanime_url/$anime_id/$ep_no" |
 		sed -n '/video\[2\] =/p' |
 		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e 's/^[^h]*//g' -e 's|-.*$||' -e 's|".*$||'
-	elif echo "$anime_id" | grep -q "UQLOAD_MC "
-	then
+	else
+		if [ "$mp4upload" = false ]
+		then
+			server="uqload</p>"
+		elif [ "$okru" = false ]
+		then
+			server="mp4upload</p>"
+		else
+			server="ok</p>"
+		fi
 		anime_id=$(echo "$anime_id" | sed 's/UQLOAD_MC //g')
 		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
 		curl -s "$monoschinos_url/ver/$nodub_anime_id-episodio-$ep_no" |
-		sed -n '/uqload.com/p' |
-		sed -e 's|&lt;iframe class=&quot;embed-responsive-item&quot; scrolling=&quot;no&quot; width=&quot;560&quot; height=&quot;315&quot; src=&quot;||' -e 's|&.*$||'
-	elif echo "$anime_id" | grep -q "MP4UPLOAD_MC "
-	then
-		anime_id=$(echo "$anime_id" | sed 's/MP4UPLOAD_MC //g')
-		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
-		redir_url=$(curl -s "$monoschinos_url/ver/$nodub_anime_id-episodio-$ep_no" | sed -n '/mp4upload.com/p' |
-			sed -e 's|&lt;iframe class=&quot;embed-responsive-item&quot; scrolling=&quot;no&quot; width=&quot;560&quot; height=&quot;315&quot; src=&quot;||' -e 's|&.*$||')
-		curl -s "$redir_url" | sed -n '/var redir/p' |
-		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e 's/var redir = "//' -e 's|".*$||'
-	else
-		anime_id=$(echo "$anime_id" | sed 's/OKRU_MC //g')
-		nodub_anime_id=`echo $anime_id  | sed 's|-sub-espanol||'`
-		redir_url=$(curl -s "$monoschinos_url/ver/$nodub_anime_id-episodio-$ep_no" | sed -n '/ok.ru/p' |
-			sed -e 's|&lt;iframe class=&quot;embed-responsive-item&quot; scrolling=&quot;no&quot; width=&quot;560&quot; height=&quot;315&quot; src=&quot;||' -e 's|&.*$||')
-		curl -s "$redir_url" | sed -n '/var redir/p' |
-		sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e 's/var redir = "//' -e 's|".*$||'
+		grep $server |
+		sed -e 's|<p class="play-video" data-player="||' -e 's|".*$||' |
+		base64 --decode |
+		sed "s|https://monoschinos2.com/reproductor?url=||"
 	fi
-}
-
-# I didn't even try to add this, but I fear it is not possible.
-get_video_quality() {
-	embedded_video_url=$1
-	video_url=$2
-
-	video_file=$(curl -s --referer "$embedded_video_url" "$video_url")
-	available_qualities=$(printf '%s' "$video_file" | sed -n -E 's/.*NAME="([^p]*)p"/\1/p')
-	case $quality in
-		best)
-			printf '%s' "$available_qualities" | tail -n 1
-			;;
-
-		worst)
-			printf '%s' "$available_qualities" | head -n 1
-			;;
-
-		*)
-			is_quality_avail=$(printf '%s' "$available_qualities" | grep "$quality")
-			video_quality="$quality"
-			if [ -z "$is_quality_avail" ]; then
-				printf "$c_red%s$c_reset\n" "Current video quality is not available (defaulting to highest quality)" >&2
-				quality=best
-				video_quality=$(printf '%s' "$available_qualities" | tail -n 1)
-			fi
-			printf '%s' "$video_quality"
-			;;
-	esac
-
 }
 
 get_links () {
 	embedded_video_url=$1
-	if echo "$anime_id" | grep -q "JK "
+	if [ "$uqload" = false ]
 	then
 		video_url=$(curl -s -L "$embedded_video_url" |
 		sed -n "/url: '/p" | sed -e 's/^[[:space:]]\{1,'"$n"'\}//' -e '2d' -e "s/url: '//" -e "s|'.*$||")
-	elif echo "$anime_id" | grep -q "MP4UPLOAD"
+	elif [ "$mp4upload" = true ] && [ "$okru" = false ]
 	then
 		html_page=$(curl -s "$embedded_video_url" | sed -n '/||player/p' | sed 's/^[^|]*|//')
+		str=$(curl -s "$embedded_video_url" |
+			sed -n '/||player/p' |
+			sed 's/^[^|]*|//')
 		parameters=$(echo $html_page | sed 's/|/\n/g')
 		p_counter=0
 		url=""
+		p=$parameters
 		while read p; do
 			p_counter=$(($p_counter+1))
 			case $p_counter in
-				3) player_extension=$p;;
-				4) player=$p;;
-				6) url="$p://";;
+				4) player_extension=$p;;
+				6) player=$p;;
+				7) url="$p://";;
 				21) url="$url$p.$player.$player_extension:END/d/" ;;
-				71) file_extension=$p ;;
-				72) file_name=$p ;;
-				73) url="$url$p/$file_name.$file_extension" ;;
-				74) url=$(echo "$url" | sed "s/END/${p}/")
+				70) file_extension=$p ;;
+				71) file_name=$p ;;
+				72) url="$url$p/$file_name.$file_extension" ;;
+				73) url=$(echo $url | sed "s/END/${p}/")
 					video_url="$url"
 			esac
 		done<<-EOF
 		$parameters
 		EOF
 	else
-		true_embedded_ending=$(echo $embedded_video_url | sed 's/.*F//')
-		true_embedded_url=https://uqload.com/$true_embedded_ending
-		video_url=$(curl -s "$true_embedded_url" |
+		video_url=$(curl -s "$embedded_video_url" |
 		sed -n '/sources:/p' |
 		sed -e 's/sources: \["//' -e 's/^[[:space:]]\{1,'"$n"'\}//'|
 		sed 's|".*$||')
+		echo $video_url >> debug
 	fi
 
 	echo $video_url
-	#video_quality=$(get_video_quality "$true_embedded_url" "$video_url")
-	# Replace the video with highest quality video
-	#printf '%s' "$video_url" | sed -n -E "s/(.*)\.m3u8/\1.$video_quality.m3u8/p"
 }
 
 check_for_update () {
@@ -300,7 +262,11 @@ anime_selection () {
 	count=1
 	while read anime_id; do
 		if [ $count -eq $choice ]; then
-			selection_id=$anime_id
+			if echo "$anime_id" | grep -q "MC "
+			then
+				uqload=true
+			fi
+			selection_id=$(echo $anime_id | sed -e 's/MC //g' -e 's/JK //g')
 			break
 		fi
 		count=$((count+1))
@@ -370,10 +336,9 @@ open_episode () {
 	printf "Getting data for episode %d.\n" $episode
 	embedded_video_url=""
 	video_url=""
-	echo "$anime_id" | grep -q "MC " && anime_id="UQLOAD_$anime_id"
-	while [ -z $embedded_video_url ] || [ -z $video_url ]
+	while [ "$embedded_video_url" = "" ] || [ "$video_url" = "" ]
 	do
-		if echo "$anime_id" | grep -q "JK "
+		if [ "$uqload" = false ]
 		then
 			printf "Scraping Desu...\n"
 			embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
@@ -383,8 +348,9 @@ open_episode () {
 		else
 			if [ "$mp4upload" = false ]
 			then
-				printf "Scraping Uqload...\n"
+				printf "Scraping Uqload...\n" 
 				embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
+				echo $embedded_video_url >> debug
 				video_url=$(get_links "$embedded_video_url")
 				#https://m20.uqload.org/3rfkja7hbrw2q4drdiipdn5vanfoiixp3o2tvrw34pppm2rvwaezdfexuvza/v.mp4
 			else
@@ -393,6 +359,7 @@ open_episode () {
 					printf "Scraping Mp4Upload...\n"
 					anime_id=$(echo "$anime_id" | sed "s/UQLOAD/MP4UPLOAD/")
 					embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
+					#echo $embedded_video_url >> 
 					video_url=$(get_links "$embedded_video_url")
 				else
 					printf "Scraping Ok...\n"
@@ -444,7 +411,6 @@ open_episode () {
 ############
 # Start Up #
 ############
-
 # to clear the colors when exited using SIGINT
 trap "printf '$c_reset'" INT HUP
 
@@ -454,7 +420,6 @@ check_for_update
 
 # option parsing
 is_download=0
-quality=best
 scrape=query
 while getopts 'hdHDquU:-:' OPT; do
 	case $OPT in
@@ -472,9 +437,6 @@ while getopts 'hdHDquU:-:' OPT; do
 		D)
 			: > "$logfile"
 			exit 0
-			;;
-		q)
-			quality=$OPTARG
 			;;
 		u)
 			git -C "$(dirname "$(readlink -f "$0")")" pull

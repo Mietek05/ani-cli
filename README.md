@@ -25,9 +25,6 @@ make
   ### watch anime
   ``hani-cli <query>``
 
-  ### download anime
-  ``hani-cli -d <query>``
-
   ### resume watching anime
   ``hani-cli -H``
 

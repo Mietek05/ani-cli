@@ -182,7 +182,6 @@ get_links () {
 		sed -n '/sources:/p' |
 		sed -e 's/sources: \["//' -e 's/^[[:space:]]\{1,'"$n"'\}//'|
 		sed 's|".*$||')
-		echo $video_url >> debug
 	fi
 
 	echo $video_url
@@ -350,7 +349,6 @@ open_episode () {
 			then
 				printf "Scraping Uqload...\n" 
 				embedded_video_url=$(get_embedded_video_link "$anime_id" "$episode")
-				echo $embedded_video_url >> debug
 				video_url=$(get_links "$embedded_video_url")
 				#https://m20.uqload.org/3rfkja7hbrw2q4drdiipdn5vanfoiixp3o2tvrw34pppm2rvwaezdfexuvza/v.mp4
 			else
